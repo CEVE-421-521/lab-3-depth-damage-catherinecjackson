@@ -234,36 +234,35 @@ emp = scatter!(emp, x_values, y_values; label="Expected Damage", markersize=2, y
 emp
 ```
 
+# Discussion
 
+In this lab, we have explored the depth-damage function for a building in Galveston, TX.  This function tells us how much relatively damage we are likely to experience at given flood depth.  First, the appropriate depth-damage curve had to be extracted from our DataSet.  Then we found the appropriate flood distribution from our gage data and adjusted it to reflect the flood height distribution relative to the ground flood of the structure of interest.  Then, a Monte Carlo simulation was taken from this house flood disribution to apply to the depth-damage curves.  This produced an expected damage value for the building in a given year.  This value was relatively constant over 100 runs of the simulation.  This value is important for understanding the potential impacts of flooding and for making decisions about flood mitigation strategies.  
+
+This paricular home, for example, experiences around a 21% expected damage threat in any given year.  Consider if the home was raised just 1 foot:
 
 ```{julia}
-combine=[vecsamples damages]
-randrows1000 = combine[rand(1:size(combine, 1), 1000), :]
-samplesrand1000 = ustrip(randrows1000[:, 1])
-damagesrand1000 = randrows1000[:, 2]
-scatter(samplesrand1000, damagesrand1000; label="House Distribution", alpha=0.5, size=(800, 400), title="House Flood Distribution 1000 Samples")
+gauge_dist = GeneralizedExtremeValue(5, 1.5, 0.1)
+p1 = plot(
+    gauge_dist;
+    label="Gauge Distribution",
+    xlabel="Water Level (ft)",
+    ylabel="Probability Density",
+    legend=:topright,
+    linewidth=2,
+)
+offset = 5.3 
+house_dist = GeneralizedExtremeValue(gauge_dist.μ - offset, gauge_dist.σ, gauge_dist.ξ)
+plot!(p1, house_dist; label="House Distribution", linewidth=2) 
 ```
 
 ```{julia}
-# add a horizontal line at the expected damage
-dp = plot!(
-    dp, [vecsamples[1], vecsamples[end]], [expecteddamages, expecteddamages]; label="Expected Damage", linewidth=2
-    )
-display(dp)
+n_samples = 1_000_000
+vecsamples = rand(house_dist, n_samples)
+vecsamples = vecsamples .* u"ft"
+damages = damage_fn.(vecsamples)
+expecteddamages = mean(damages)
 ```
 
-# Discussion
+The annual expected damage drops to 13.60%.
 
-5. **Build the depth-damage curve.** Use the tools we have built in this workshop to build a depth-damage curve for your building. Plot the curve in 1 inch increments from -10 to 30 feet, as above. Explain what it means.
-6. Implement the Monte Carlo algorithm described above to estimate the expected annual damages. Use 1,000,000 samples. Explain what this means.
-
-Finally, add any plots or discussion that you think are relevant!
-For example, consider looking at plausible alternative depth-damage functions and the sensitivity of your results to the choice of depth-damage function.
-
-
-
-# Depth-Damage
-
-# Expected annual damages
-
-# Discussion
+For 
