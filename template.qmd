@@ -263,6 +263,27 @@ damages = damage_fn.(vecsamples)
 expecteddamages = mean(damages)
 ```
 
-The annual expected damage drops to 13.60%.
+The annual expected damage drops to 13.60%.  Consider below in which the expected damage is compared to the elevation increase of the house.  The damages decrease quickly as the house is raised.
 
-For 
+```{julia}
+raisedmed = scatter()
+
+x_values = Int[]
+y_values = Float64[]
+
+for i = 0:10
+    gauge_dist = GeneralizedExtremeValue(5, 1.5, 0.1)
+    offset = 4.3 + i
+    house_dist = GeneralizedExtremeValue(gauge_dist.μ - offset, gauge_dist.σ, gauge_dist.ξ)
+    n_samples = 1_000_000
+    vecsamples = rand(house_dist, n_samples)
+    vecsamples = vecsamples .* u"ft"
+    damages = damage_fn.(vecsamples)
+    expecteddamages = mean(damages)
+    push!(x_values, i)
+    push!(y_values, expecteddamages)
+end
+
+raisedmed = scatter!(raisedmed, x_values, y_values; label="Expected Damage", markersize=2, ylabel="Expected Damage", xlabel="Raised (ft)", ylims=(0, maximum(y_values) + 1))
+
+```
