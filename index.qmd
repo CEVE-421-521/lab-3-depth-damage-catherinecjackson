@@ -127,6 +127,7 @@ demo_row = @rsubset(
 )[
     1, :,
 ]
+display(demo_row)
 dd = DepthDamageData(demo_row)
 ```
 

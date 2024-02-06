@@ -84,12 +84,167 @@ It is important to determine the elevation of the building because our data is s
 
 Flood Depth-Damage curves are commonly used functions that relate the flood depth (measured above the ground flood) and the relaive damage (%).  In other words, if given a flood depth, these relationships would make predictions about the expected damage to a building.  These relationships are important for understanding the potential impacts of flooding and for making decisions about flood mitigation strategies.  However, there are some downsides and issues with these relationships, but they can be a good initial estimate.  Furthermore, when paired with flood distributions, they can be used to estimate the expected annual damages or the expected damages over a longer time period.  This can be done analytically, but, in practice, a Monte Carlo simulation is often used.
 
-First, then, it is necessary to find this function for the site of interest such that, for flooding in the area of this site measured at the gage, predictions can be made about the expected damage to the building.  I opened up the variable hax_fl_dept.csv to find the right function.  First, I sorted the descriptions to find the functions that applied to two story buildings without a basement.  I also looked for the functions which analyzed the damage to the structure, rather than the contents.  In addition, the physical location of the structure is important, and the Army Corps of Engineers provides different functions for different areas.  Therefore, looking for the right type of curve and for curves from USACE - Galveston, Function 140 was appropriate (e.g. DmgFnId=140).
+First, then, it is necessary to find this function for the site of interest such that, for flooding in the area of this site measured at the gage, predictions can be made about the expected damage to the building.  I opened up the variable hax_fl_dept.csv to find the right function.  First, I sorted the descriptions to find the functions that applied to two story buildings without a basement.  I also looked for the functions which analyzed the damage to the structure, rather than the contents.  In addition, the physical location of the structure is important, and the Army Corps of Engineers provides different functions for different areas.  Therefore, looking for the right type of curve and for curves from USACE - Galveston, Function 140 was appropriate (e.g. DmgFnId=140).  We also want the residential occupancy, so this must be filtered as well.
 
 ## Build the Depth-Damage Curve
 
+First, the correct depth-damage curve is pulled from the DataFrame and saved as dd.
+
+```{julia}
+include("depthdamage.jl")
+haz_fl_dept = CSV.read("data/haz_fl_dept.csv", DataFrame)
+first(haz_fl_dept, 3)
+demo_row = @rsubset(
+    haz_fl_dept, :Description == "two story, no basement, Structure", :Occupancy == "RES1", :Source == "USACE - Galveston", :DmgFnId == 140
+)[
+    1, :,
+]
+display(demo_row)
+dd = DepthDamageData(demo_row)
+fieldnames(typeof(dd))
+```
+
+As discussed in the tutorial, we can take a quick check at the original plot to make sure it looks reasonable.
+
+```{julia}
+scatter(
+    dd.depths,
+    dd.damages;
+    xlabel="Flood Depth at House",
+    ylabel="Damage (%)",
+    label="$(dd.description) ($(dd.source))",
+    legend=:bottomright,
+    size=(700, 500),
+)
+```
+
+
+```{julia}
+function get_depth_damage_function(
+    depth_train::Vector{<:T}, dmg_train::Vector{<:AbstractFloat}
+) where {T<:Unitful.Length}
+
+    # interpolate
+    depth_ft = ustrip.(u"ft", depth_train)
+    interp_fn = Interpolations.LinearInterpolation(
+        depth_ft, # <1>
+        dmg_train;
+        extrapolation_bc=Interpolations.Flat(), # <2>
+    )
+
+    damage_fn = function (depth::T2) where {T2<:Unitful.Length}
+        return interp_fn(ustrip.(u"ft", depth)) # <3>
+    end
+    return damage_fn # <4>
+end
+```
+
+```{julia}
+display(dd.depths)
+global damage_fn = get_depth_damage_function(dd.depths, dd.damages)
+```
+
+```{julia}
+p = let
+    depths = uconvert.(u"ft", (-7.0u"ft"):(1.0u"inch"):(30.0u"ft")) # <1>
+    damages = damage_fn.(depths) # <2>
+    scatter(
+        depths,
+        damages;
+        xlabel="Flood Depth",
+        ylabel="Damage (%)",
+        label="$(dd.description) ($(dd.source))",
+        legend=:bottomright,
+        size=(800, 400),
+        linewidth=2,
+    )
+end
+p
+```
 
 # Expected Annual Damages
+
+## Flood distribution
+
+```{julia}
+gauge_dist = GeneralizedExtremeValue(5, 1.5, 0.1)
+```
+
+We can see some quantiles of the distribution:
+
+```{julia}
+quantile.(gauge_dist, [0.5, 0.9, 0.99, 0.999])
+```
+
+and we can plot it using `StatsPlots`:
+
+```{julia}
+p1 = plot(
+    gauge_dist;
+    label="Gauge Distribution",
+    xlabel="Water Level (ft)",
+    ylabel="Probability Density",
+    legend=:topright,
+    linewidth=2,
+)
+```
+
+Our building might be above the gauge.
+We can correct for this by adding an offset to the **location parameter** of the gauge.
+Again, we are taking hypothetical values here!
+
+```{julia}
+offset = 4.3 # house is 2.5 feet above gauge
+house_dist = GeneralizedExtremeValue(gauge_dist.μ - offset, gauge_dist.σ, gauge_dist.ξ)
+```
+
+We can plot this
+
+```{julia}
+plot!(p1, house_dist; label="House Distribution", linewidth=2) # <1>
+```
+
+## Monte Carlo Sampling
+
+```{julia}
+n_samples = 1_000_000
+vecsamples = rand(house_dist, n_samples)
+vecsamples = vecsamples .* u"ft"
+damages = damage_fn.(vecsamples)
+expecteddamages = mean(damages)
+```
+
+```{julia}
+plot()
+samplesrand = rand(house_dist, 100)
+h1 = histogram!(samplesrand; label="House Distribution", alpha=0.5, normed=true, size=(800, 400), title="House Flood Distribution 100 Samples")
+plot()
+samplesrand10000 = rand(house_dist, 1000)
+h2 = histogram(samplesrand10000; label="House Distribution", alpha=0.5, normed=true, size=(800, 400), title="House Flood Distribution 1000 Samples")
+plot()
+samplesrand100000 = rand(house_dist, 10000)
+h3 = histogram(samplesrand100000; label="House Distribution", alpha=0.5, normed=true, size=(800, 400), title="House Flood Distribution 10000 Samples")
+
+# plot h1 h2 and h3 side by side make the title text smaller
+plot(h1, h2, h3, layout=(1, 3), size=(800, 400), titlefontsize=8)
+```
+
+
+
+```{julia}
+dp = plot(
+        vecsamples, damages; seriestype=:scatter, alpha=0.1, label="", xlabel="Flood Depth", ylabel="Damage (%)", size=(800, 400)
+    )
+dp
+```
+
+```{julia}
+# add a horizontal line at the expected damage
+dp = plot!(
+    dp, [vecsamples[1], vecsamples[end]], [expecteddamages, expecteddamages]; label="Expected Damage", linewidth=2
+    )
+display(dp)
+```
 
 # Discussion
 
