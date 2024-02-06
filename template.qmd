@@ -1,8 +1,8 @@
 ---
 title: "Lab 3: Depth-Damage Models"
 subtitle: "DataFrames and Distributions"
-author: "Your Name"
-date: 2024-01-26
+author: "Catherine Jackson"
+date: 2024-02-06
 week: 3
 categories: [Lab]
 
@@ -57,6 +57,49 @@ Plots.default(; margin=6Plots.mm)
 ```
 
 # Site information
+
+## Site of Interest
+
+I have chosen the Galveston Pier 21 site as my water gage and a home at 304 18th St, Galveston, TX 77550 to be my site of interest.  I chose this site as it is a residential building within half a mile of the water gage itself.  Furthermore, it is still very close to the coast of Galveston channel.  For this reason, it is a good candidate for exploring and understanding the impacts of coastal flooding and the complexities of making decisions on flood mitigation strategies.
+
+## Site Elevation
+
+Using USGS's National Map Viewer, I found the following information:
+
+Feet: 4.33
+Meters: 1.32
+DD: 29.30758° -94.78810°
+DMS: 29° 18' 27.283" N     94° 47' 17.153" W
+UTM: 15 326343 3243390
+USNG: 15R UN 26342 43390 (NAD 83)
+MGRS: 15RUN2634243390
+
+*Note: Spot elevation query values from the3DEP are not official and do not represent precisely measured or surveyed values.*
+
+It is important to determine the elevation of the building because our data is sourced from a nearby gage.  This nearby gage has a distribution which represents the water levels at this gage, but they must be adjusted to represent the distribution of the water levels at the ground floor level of the building.
+
+# Depth-Damage
+
+## Identify the Appropriate Depth-Damage Function
+
+Flood Depth-Damage curves are commonly used functions that relate the flood depth (measured above the ground flood) and the relaive damage (%).  In other words, if given a flood depth, these relationships would make predictions about the expected damage to a building.  These relationships are important for understanding the potential impacts of flooding and for making decisions about flood mitigation strategies.  However, there are some downsides and issues with these relationships, but they can be a good initial estimate.  Furthermore, when paired with flood distributions, they can be used to estimate the expected annual damages or the expected damages over a longer time period.  This can be done analytically, but, in practice, a Monte Carlo simulation is often used.
+
+First, then, it is necessary to find this function for the site of interest such that, for flooding in the area of this site measured at the gage, predictions can be made about the expected damage to the building.  I opened up the variable hax_fl_dept.csv to find the right function.  First, I sorted the descriptions to find the functions that applied to two story buildings without a basement.  I also looked for the functions which analyzed the damage to the structure, rather than the contents.  In addition, the physical location of the structure is important, and the Army Corps of Engineers provides different functions for different areas.  Therefore, looking for the right type of curve and for curves from USACE - Galveston, Function 140 was appropriate (e.g. DmgFnId=140).
+
+## Build the Depth-Damage Curve
+
+
+# Expected Annual Damages
+
+# Discussion
+
+5. **Build the depth-damage curve.** Use the tools we have built in this workshop to build a depth-damage curve for your building. Plot the curve in 1 inch increments from -10 to 30 feet, as above. Explain what it means.
+6. Implement the Monte Carlo algorithm described above to estimate the expected annual damages. Use 1,000,000 samples. Explain what this means.
+
+Finally, add any plots or discussion that you think are relevant!
+For example, consider looking at plausible alternative depth-damage functions and the sensitivity of your results to the choice of depth-damage function.
+
+
 
 # Depth-Damage
 
